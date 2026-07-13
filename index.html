@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0d0e12">
+<title>Cannes Lions Jackpot 2026</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css">
+<style>
+  :root {
+    --bg: #0d0e12;
+    --bg-raise: #16181f;
+    --bg-raise2: #1e212b;
+    --text: #f4f5f7;
+    --text-dim: #9aa0ae;
+    --line: #2a2e3a;
+    --bronze: #c98a5e;
+    --silver: #c3ccd9;
+    --gold: #f2c94c;
+    --gp: #a855f7;
+    --tier: #f2c94c; /* current tier accent, set by JS */
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .screen {
+    position: fixed; inset: 0;
+    display: none;
+    flex-direction: column;
+    padding: calc(var(--sat) + 16px) 20px calc(var(--sab) + 20px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen.active { display: flex; }
+
+  /* ---------- SPIN SCREEN ---------- */
+  #screen-spin { justify-content: space-between; text-align: center; overflow: hidden; }
+  .brand-head { padding-top: 8px; }
+  .brand-head h1 {
+    font-size: 21px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .brand-head h1 .jackpot { color: var(--gold); }
+  .brand-head p { color: var(--text-dim); font-size: 13px; margin-top: 6px; }
+
+  .machine { display: flex; align-items: flex-start; justify-content: center; gap: 10px; }
+  .reels-wrap { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  .reels {
+    display: flex; gap: 10px; justify-content: center;
+  }
+  .reel {
+    width: min(23vw, 100px); height: min(31vw, 140px);
+    background: linear-gradient(180deg, var(--bg-raise2), var(--bg-raise));
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+    box-shadow: inset 0 10px 24px rgba(0,0,0,.45), inset 0 -10px 24px rgba(0,0,0,.45);
+  }
+  .reel::before, .reel::after {
+    content: ""; position: absolute; left: 0; right: 0; height: 26%; pointer-events: none; z-index: 2;
+  }
+  .reel::before { top: 0; background: linear-gradient(180deg, rgba(13,14,18,.85), transparent); }
+  .reel::after { bottom: 0; background: linear-gradient(0deg, rgba(13,14,18,.85), transparent); }
+  .reel .strip { height: 100%; display: flex; flex-direction: column; will-change: transform; }
+  .reel .cell {
+    font-size: 54px; line-height: 1; display: flex; align-items: center; justify-content: center;
+    color: var(--text); flex-shrink: 0;
+  }
+  .reel .cell .fi { width: 62px; height: 47px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+  .reel .strip.scrolling { height: auto; animation: reelScroll .42s linear infinite; filter: blur(1.2px); }
+  @keyframes reelScroll {
+    from { transform: translateY(0); } to { transform: translateY(-50%); }
+  }
+  .reel.landed .cell { animation: reelSettle .5s cubic-bezier(.2,2.2,.4,1); }
+  @keyframes reelSettle {
+    0% { transform: translateY(-26px); } 60% { transform: translateY(6px); } 100% { transform: translateY(0); }
+  }
+  .reel.hit { border-color: var(--tier); box-shadow: 0 0 0 2px var(--tier), 0 0 28px color-mix(in srgb, var(--tier) 55%, transparent), inset 0 10px 24px rgba(0,0,0,.45); }
+  .reel-labels { display: flex; gap: 10px; justify-content: center; }
+  .reel-labels span {
+    width: min(23vw, 100px); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim);
+  }
+
+  /* ---------- LEVER ---------- */
+  .lever-zone {
+    position: relative; width: 64px; height: 150px; flex-shrink: 0;
+    /* Pull the zone up so the base bracket sits level with the vertical center
+       of the reel windows (reel half-height = min(15.5vw, 70px), base center 13px) */
+    margin-top: calc(min(15.5vw, 70px) - 137px);
+    perspective: 420px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none;
+  }
+  .lever-zone:active { cursor: grabbing; }
+  .lever-zone.disabled { opacity: .45; pointer-events: none; }
+  .lever-track {
+    position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%);
+    width: 14px; height: 104px; border-radius: 8px;
+    background: linear-gradient(180deg, #05060a, #1a1d26);
+    border: 1px solid var(--line);
+    box-shadow: inset 0 2px 10px rgba(0,0,0,.85);
+  }
+  .lever-base {
+    position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+    width: 46px; height: 26px; border-radius: 9px;
+    background: linear-gradient(180deg, #2a2f3c, #12141b);
+    border: 1px solid var(--line);
+    box-shadow: 0 4px 10px rgba(0,0,0,.5);
+  }
+  .lever-arm {
+    position: absolute; left: 50%; bottom: 24px;
+    width: 12px; height: 96px; margin-left: -6px; border-radius: 7px;
+    background: linear-gradient(90deg, #6f7686, #e6ebf2 45%, #9aa2b1);
+    transform-origin: 50% 100%;
+    transform: rotateX(0deg);
+    box-shadow: 2px 0 8px rgba(0,0,0,.45);
+  }
+  .lever-arm.spring { transition: transform .45s cubic-bezier(.2,1.6,.4,1); }
+  .lever-ball {
+    position: absolute; top: -26px; left: 50%; transform: translateX(-50%);
+    width: 34px; height: 34px; border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, #ff9d94, #e02424 55%, #7a0f0f);
+    box-shadow: 0 5px 14px rgba(224,36,36,.45), inset 0 -4px 8px rgba(0,0,0,.35);
+  }
+  .lever-hint { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); text-align: center; position: absolute; bottom: -18px; left: 0; right: 0; }
+  .win-flash {
+    min-height: 36px; font-size: 26px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--tier); opacity: 0; transform: scale(.6);
+    text-shadow: 0 0 24px color-mix(in srgb, var(--tier) 60%, transparent);
+  }
+  .win-flash.show { animation: winPop .5s cubic-bezier(.2,1.9,.4,1) forwards; }
+  @keyframes winPop { from { opacity: 0; transform: scale(.5); } to { opacity: 1; transform: scale(1); } }
+
+  .spin-zone { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+  .coins {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--bg-raise); border: 1px solid var(--line); border-radius: 999px;
+    padding: 8px 16px; font-size: 14px; font-weight: 600; color: var(--text);
+  }
+  .coins i { color: var(--gold); font-size: 17px; }
+  .coins.empty { color: var(--text-dim); }
+  .btn {
+    border: none; border-radius: 18px; font-family: inherit; cursor: pointer;
+    font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    transition: transform .12s ease, opacity .2s ease, background .2s ease;
+    touch-action: manipulation;
+  }
+  .btn:active { transform: scale(.96); }
+  .btn-recap-link {
+    width: 100%; max-width: 360px; padding: 20px; font-size: 17px;
+    background: var(--bg-raise2); color: var(--text); border: 1px solid var(--line);
+  }
+  .reset-note { font-size: 12px; color: var(--text-dim); }
+
+  /* ---------- REVEAL SCREEN ---------- */
+  #screen-reveal {
+    background:
+      radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--tier) 26%, transparent), transparent 70%),
+      var(--bg);
+    gap: 14px;
+  }
+  .reveal-top { display: flex; justify-content: space-between; align-items: center; }
+  .tier-flash {
+    font-size: 13px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; color: var(--tier);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .reveal-coins { font-size: 12px; color: var(--text-dim); }
+  .video-frame {
+    width: 100%; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden;
+    background: #000; border: 1px solid color-mix(in srgb, var(--tier) 45%, var(--line));
+    box-shadow: 0 10px 40px rgba(0,0,0,.5);
+    flex-shrink: 0;
+  }
+  .video-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .reveal-title { font-size: 22px; font-weight: 800; line-height: 1.15; }
+  .reveal-brand { font-size: 14px; color: var(--text-dim); font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: .04em; }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--bg-raise); border: 1px solid var(--line); border-radius: 999px;
+    padding: 7px 13px; font-size: 12.5px; font-weight: 600;
+  }
+  .pill .fi { width: 19px; height: 14px; border-radius: 2.5px; }
+  .pill i { font-size: 15px; }
+  .pill.tier { border-color: var(--tier); color: var(--tier); background: color-mix(in srgb, var(--tier) 12%, var(--bg-raise)); }
+  .luck {
+    background: var(--bg-raise); border: 1px solid var(--line); border-radius: 16px;
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 9px;
+  }
+  .luck-line { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.35; }
+  .luck-line i { color: var(--tier); font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .fine-print { font-size: 11px; color: var(--text-dim); }
+  .reveal-actions { display: flex; flex-direction: column; gap: 10px; margin-top: auto; padding-top: 4px; }
+  .btn-primary {
+    padding: 17px; font-size: 16px; width: 100%;
+    background: var(--tier); color: #14060a;
+  }
+  .btn-secondary {
+    padding: 15px; font-size: 14px; width: 100%;
+    background: transparent; color: var(--text); border: 1px solid var(--line);
+  }
+
+  /* ---------- RECAP SCREEN ---------- */
+  #screen-recap { gap: 16px; text-align: center; }
+  .recap-kicker { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--text-dim); padding-top: 10px; }
+  .recap-headline { font-size: 24px; font-weight: 800; line-height: 1.2; }
+  .recap-stat { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .recap-stat .highlight { color: var(--gold); font-weight: 700; }
+  .rank-note { font-size: 10.5px; color: var(--text-dim); letter-spacing: .04em; text-align: left; }
+  .recap-grid { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+  .rank-chip {
+    width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+    background: var(--bg-raise2); border: 1px solid var(--line); color: var(--text-dim);
+    font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+  }
+  .pull-row.best .rank-chip { background: var(--gold); border-color: var(--gold); color: #221a03; }
+  .pull-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--bg-raise); border: 1px solid var(--line); border-radius: 14px; padding: 10px;
+    cursor: pointer; transition: transform .1s ease, background .15s ease;
+  }
+  .pull-row:active { transform: scale(.98); background: var(--bg-raise2); }
+  .pull-row .chevron { color: var(--text-dim); font-size: 16px; flex-shrink: 0; }
+  .pull-row.best { border-color: var(--gold); box-shadow: 0 0 20px rgba(242,201,76,.15); }
+  .pull-thumb {
+    width: 86px; height: 50px; border-radius: 8px; object-fit: cover; background: var(--bg-raise2); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--text-dim);
+  }
+  .pull-info { flex: 1; min-width: 0; }
+  .pull-title { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pull-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 7px; margin-top: 4px; font-size: 11px; color: var(--text-dim); }
+  .pull-meta .cat { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .pull-meta .fi { width: 17px; height: 13px; border-radius: 2px; }
+  .tier-dot { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+  .tier-dot::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+  .best-tag {
+    font-size: 9.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+    color: #221a03; background: var(--gold); border-radius: 6px; padding: 3px 7px; flex-shrink: 0;
+  }
+  .recap-actions { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
+  .btn-share-session { padding: 18px; font-size: 16px; width: 100%; background: linear-gradient(180deg, #ffd86b, var(--gold)); color: #221a03; box-shadow: 0 5px 0 #b08c1e; }
+  .btn-share-session:active { box-shadow: 0 2px 0 #b08c1e; transform: translateY(3px) scale(.98); }
+
+  .hidden { display: none !important; }
+  #shareCanvas { display: none; }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(var(--sab) + 24px); transform: translateX(-50%);
+    background: var(--bg-raise2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 12px; padding: 11px 18px; font-size: 13px; z-index: 99;
+    opacity: 0; transition: opacity .25s ease; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- SPIN -->
+<section class="screen active" id="screen-spin">
+  <header class="brand-head">
+    <h1>Cannes Lions<br><span class="jackpot">Jackpot</span> 2026</h1>
+    <p>Pull the lever. Win a case film.</p>
+  </header>
+
+  <div class="machine">
+    <div class="reels-wrap">
+      <div class="reels">
+        <div class="reel" id="reel-cat"><div class="strip"><div class="cell">🦁</div></div></div>
+        <div class="reel" id="reel-country"><div class="strip"><div class="cell">🦁</div></div></div>
+        <div class="reel" id="reel-tier"><div class="strip"><div class="cell">🦁</div></div></div>
+      </div>
+      <div class="reel-labels"><span>Category</span><span>Country</span><span>Metal</span></div>
+      <div class="win-flash" id="winFlash"></div>
+    </div>
+    <div class="lever-zone" id="lever">
+      <div class="lever-hint">Pull</div>
+      <div class="lever-track"></div>
+      <div class="lever-arm" id="leverArm"><div class="lever-ball"></div></div>
+      <div class="lever-base"></div>
+    </div>
+  </div>
+
+  <div class="spin-zone">
+    <div class="coins" id="coinsPill"><i class="ti ti-coin-filled"></i><span id="coinsText">5 spins left today</span></div>
+    <button class="btn btn-recap-link hidden" id="btnGoRecap">See my session</button>
+    <div class="reset-note" id="resetNote"></div>
+  </div>
+</section>
+
+<!-- REVEAL -->
+<section class="screen" id="screen-reveal">
+  <div class="reveal-top">
+    <span class="tier-flash" id="tierFlash"><i class="ti ti-medal"></i><span id="tierFlashText"></span></span>
+    <span class="reveal-coins" id="revealCoins"></span>
+  </div>
+  <div class="video-frame" id="videoFrame"></div>
+  <div>
+    <div class="reveal-title" id="revealTitle"></div>
+    <div class="reveal-brand" id="revealBrand"></div>
+  </div>
+  <div class="pills" id="revealPills"></div>
+  <div class="luck" id="luckBox"></div>
+  <div class="fine-print" id="finePrint"></div>
+  <div class="reveal-actions">
+    <button class="btn btn-primary" id="btnSpinAgain">Spin again</button>
+    <button class="btn btn-secondary" id="btnSharePull"><i class="ti ti-share"></i>&nbsp; Share this pull</button>
+  </div>
+</section>
+
+<!-- RECAP -->
+<section class="screen" id="screen-recap">
+  <div class="recap-kicker">Session recap</div>
+  <div class="recap-headline" id="recapHeadline"></div>
+  <div class="recap-stat" id="recapStat"></div>
+  <div class="rank-note">Ranked by metal, then real-world rarity, then total Lions won</div>
+  <div class="recap-grid" id="recapGrid"></div>
+  <div class="recap-actions">
+    <button class="btn btn-share-session" id="btnShareSession"><i class="ti ti-share"></i>&nbsp; Share my session</button>
+    <div class="reset-note" id="recapResetNote"></div>
+  </div>
+</section>
+
+<canvas id="shareCanvas" width="1080" height="1350"></canvas>
+<div class="toast" id="toast"></div>
+
+<script src="data.js"></script>
+<script>
+/* ============================================================
+   Cannes Lions Jackpot 2026 — v1
+   Static, client-side only. Data bundled in data.js (CANNES_DATA).
+   ============================================================ */
+
+// ---------- Mappings ----------
+const CATEGORY_ICONS = {
+  "Audio & Radio Lions": "ti-microphone",
+  "Brand Experience & Activation Lions": "ti-confetti",
+  "Creative B2B Lions": "ti-briefcase",
+  "Creative Business Transformation Lions": "ti-transform",
+  "Creative Commerce Lions": "ti-shopping-cart",
+  "Creative Data Lions": "ti-chart-dots",
+  "Creative Effectiveness Lions": "ti-target-arrow",
+  "Creative Strategy Lions": "ti-chess-knight",
+  "Design Lions": "ti-palette",
+  "Digital Craft Lions": "ti-cpu",
+  "Direct Lions": "ti-mail",
+  "Entertainment Lions": "ti-device-tv",
+  "Entertainment Lions for Gaming": "ti-device-gamepad-2",
+  "Entertainment Lions for Music": "ti-music",
+  "Entertainment Lions for Sports": "ti-ball-football",
+  "Film Craft Lions": "ti-video",
+  "Film Lions": "ti-movie",
+  "Glass: The Lion for Change": "ti-scale",
+  "Grand Prix for Good Lions": "ti-heart-handshake",
+  "Health & Wellness Lions": "ti-heartbeat",
+  "Industry Craft Lions": "ti-tools",
+  "Innovation Lions": "ti-bulb",
+  "Lions Health Grand Prix for Good": "ti-first-aid-kit",
+  "Luxury Lions": "ti-diamond",
+  "Media Lions": "ti-broadcast",
+  "Outdoor Lions": "ti-ad-2",
+  "PR Lions": "ti-speakerphone",
+  "Pharma Lions": "ti-pill",
+  "Print & Publishing Lions": "ti-news",
+  "Social & Creator Lions": "ti-thumb-up",
+  "Sustainable Development Goals Lions": "ti-leaf",
+  "Titanium Lions": "ti-rocket"
+};
+const FALLBACK_ICON = "ti-award";
+
+const COUNTRY_ISO = {
+  "Argentina": "ar", "Australia": "au", "Bosnia & Herzegovina": "ba", "Brazil": "br",
+  "Canada": "ca", "Chinese Taipei": "tw", "Denmark": "dk", "Finland": "fi",
+  "France": "fr", "Germany": "de", "Greece": "gr", "Hong Kong": "hk",
+  "India": "in", "Indonesia": "id", "Italy": "it", "Japan": "jp",
+  "Kenya": "ke", "Malta": "mt", "Mexico": "mx", "Netherlands": "nl",
+  "New Zealand": "nz", "Paraguay": "py", "Peru": "pe", "Poland": "pl",
+  "Puerto Rico": "pr", "Saudi Arabia": "sa", "Singapore": "sg", "South Africa": "za",
+  "Spain": "es", "Sweden": "se", "Thailand": "th", "United Arab Emirates": "ae",
+  "United Kingdom": "gb", "United States": "us"
+};
+
+const TIERS = ["Bronze", "Silver", "Gold", "Grand Prix"];
+const TIER_STYLE = {
+  "Bronze":     { color: "#c98a5e", icon: "ti-medal",  label: "Bronze Lion" },
+  "Silver":     { color: "#c3ccd9", icon: "ti-medal",  label: "Silver Lion" },
+  "Gold":       { color: "#f2c94c", icon: "ti-medal",  label: "Gold Lion" },
+  "Grand Prix": { color: "#a855f7", icon: "ti-trophy", label: "Grand Prix" }
+};
+const TOTAL_LIONS_2026 = 640; // full dataset size behind real_world_rarity percentages
+
+// ---------- State ----------
+const STORE_KEY = "cannesJackpot2026";
+const DAILY_COINS = 5;
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function loadState() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { /* corrupted → reset */ }
+  if (!s || s.date !== todayStr()) s = { date: todayStr(), coins: DAILY_COINS, pulls: [] };
+  return s;
+}
+function saveState() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }
+let state = loadState();
+let currentCampaign = null;
+let spinning = false;
+
+const byId = {};
+CANNES_DATA.forEach(c => { byId[c.id] = c; });
+
+// ---------- Helpers ----------
+const $ = id => document.getElementById(id);
+function show(screenId) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  $(screenId).classList.add("active");
+}
+function catIcon(group) { return CATEGORY_ICONS[group] || FALLBACK_ICON; }
+function isoOf(country) { return COUNTRY_ISO[country] || null; }
+function flagEmoji(country) {
+  const iso = isoOf(country);
+  if (!iso) return "🏆";
+  return iso.toUpperCase().replace(/./g, ch => String.fromCodePoint(0x1F1E6 + ch.charCodeAt(0) - 65));
+}
+function tierStyle(badge) { return TIER_STYLE[badge] || TIER_STYLE["Gold"]; }
+function setTierAccent(badge) {
+  document.documentElement.style.setProperty("--tier", tierStyle(badge).color);
+}
+function pickRandom() {
+  return CANNES_DATA[Math.floor(Math.random() * CANNES_DATA.length)]; // uniform — no weighting by design
+}
+function videoEmbed(url) {
+  let m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+  // Note: www.youtube.com (not nocookie) + a sent referer avoids playback error 153.
+  // YouTube requires an HTTP Referer on embeds — pages opened from file:// send none,
+  // so the app must be served over http(s) (GitHub Pages, or `python3 -m http.server`).
+  if (m) return { type: "youtube", id: m[1], src: "https://www.youtube.com/embed/" + m[1] + "?autoplay=1&mute=1&playsinline=1&rel=0" };
+  m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (m) return { type: "vimeo", id: m[1], src: "https://player.vimeo.com/video/" + m[1] + "?autoplay=1&muted=1&playsinline=1" };
+  return null;
+}
+function thumbUrl(c) {
+  const v = videoEmbed(c.video_url);
+  if (v && v.type === "youtube") return "https://img.youtube.com/vi/" + v.id + "/mqdefault.jpg";
+  if (v && v.type === "vimeo") return "https://vumbnail.com/" + v.id + ".jpg";
+  return null;
+}
+function fmtPct(p) { return (Math.round(p * 10) / 10).toString(); }
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+// ---------- Coins UI ----------
+function msToMidnight() {
+  const now = new Date();
+  const mid = new Date(now); mid.setHours(24, 0, 0, 0);
+  return mid - now;
+}
+function resetCountdownText() {
+  const ms = msToMidnight();
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+  return "New coins at midnight — in " + (h > 0 ? h + "h " : "") + m + "m";
+}
+function renderSpinScreen() {
+  const c = state.coins;
+  $("coinsText").textContent = c === 0 ? "0 spins left today" : c + (c === 1 ? " spin" : " spins") + " left today";
+  $("coinsPill").classList.toggle("empty", c === 0);
+  const done = c === 0;
+  $("lever").classList.toggle("hidden", done);
+  $("btnGoRecap").classList.toggle("hidden", !done);
+  $("resetNote").textContent = done ? resetCountdownText() : "5 free spins a day · resets at midnight";
+}
+
+// ---------- Reels ----------
+function randCatIconEl() {
+  const keys = Object.keys(CATEGORY_ICONS);
+  return '<i class="ti ' + CATEGORY_ICONS[keys[Math.floor(Math.random() * keys.length)]] + '"></i>';
+}
+function randFlagEl() {
+  const codes = Object.values(COUNTRY_ISO);
+  return '<span class="fi fi-' + codes[Math.floor(Math.random() * codes.length)] + '"></span>';
+}
+function randTierEl() {
+  const t = TIERS[Math.floor(Math.random() * TIERS.length)];
+  const s = tierStyle(t);
+  return '<i class="ti ' + s.icon + '" style="color:' + s.color + '"></i>';
+}
+function spinReel(reelEl, cycler, finalHtml, duration) {
+  return new Promise(resolve => {
+    reelEl.classList.remove("landed", "hit");
+    const strip = reelEl.querySelector(".strip");
+    const cellH = reelEl.clientHeight;
+    // Build a strip of random icons, duplicated so translateY(-50%) loops seamlessly
+    let cells = "";
+    for (let i = 0; i < 10; i++) cells += '<div class="cell" style="height:' + cellH + 'px">' + cycler() + "</div>";
+    strip.innerHTML = cells + cells;
+    strip.classList.add("scrolling");
+    // keep re-randomizing cells so longer spins don't look repetitive
+    const iv = setInterval(() => {
+      const kids = strip.children;
+      kids[Math.floor(Math.random() * kids.length)].innerHTML = cycler();
+    }, 130);
+    setTimeout(() => {
+      clearInterval(iv);
+      strip.classList.remove("scrolling");
+      strip.innerHTML = '<div class="cell" style="height:100%">' + finalHtml + "</div>";
+      reelEl.classList.add("landed");
+      if (navigator.vibrate) navigator.vibrate(20);
+      resolve();
+    }, duration);
+  });
+}
+async function doSpin() {
+  if (spinning || state.coins <= 0) return;
+  spinning = true;
+  $("lever").classList.add("disabled");
+
+  state.coins--;
+  currentCampaign = pickRandom();
+  state.pulls.push(currentCampaign.id);
+  saveState();
+  renderSpinScreen();
+  $("lever").classList.remove("hidden"); // keep visible (disabled) during the spin itself
+  $("btnGoRecap").classList.add("hidden");
+
+  const c = currentCampaign;
+  const ts = tierStyle(c.tier_badge);
+  const finalCat = '<i class="ti ' + catIcon(c.lion_group) + '"></i>';
+  const iso = isoOf(c.country);
+  const finalFlag = iso ? '<span class="fi fi-' + iso + '"></span>' : '<i class="ti ti-world"></i>';
+  const finalTier = '<i class="ti ' + ts.icon + '" style="color:' + ts.color + '"></i>';
+
+  // Land order: category → country → metal (metal last = biggest emotional swing)
+  const p1 = spinReel($("reel-cat"), randCatIconEl, finalCat, 1100);
+  const p2 = spinReel($("reel-country"), randFlagEl, finalFlag, 1900);
+  const p3 = spinReel($("reel-tier"), randTierEl, finalTier, 2750);
+  await Promise.all([p1, p2, p3]);
+
+  setTierAccent(c.tier_badge);
+  $("reel-tier").classList.add("hit");
+  if (navigator.vibrate && c.tier_badge === "Grand Prix") navigator.vibrate([40, 60, 80]);
+
+  // Linger on the landed reels so the win registers before the reveal card
+  const flash = $("winFlash");
+  flash.textContent = c.tier_badge === "Grand Prix" ? "★ Grand Prix ★" : tierStyle(c.tier_badge).label + "!";
+  flash.classList.add("show");
+  const linger = c.tier_badge === "Grand Prix" ? 3200 : 2400;
+
+  setTimeout(() => {
+    flash.classList.remove("show");
+    flash.textContent = "";
+    renderReveal(c);
+    show("screen-reveal");
+    spinning = false;
+    $("lever").classList.remove("disabled");
+    renderSpinScreen();
+  }, linger);
+}
+
+// ---------- Reveal ----------
+function luckLines(c) {
+  const lines = [];
+  const r = c.real_world_rarity;
+  const tierCount = Math.max(1, Math.round(r.tier_pct_of_all_lions / 100 * TOTAL_LIONS_2026));
+  lines.push({ icon: "ti-sparkles", text: c.tier_badge + " — only " + fmtPct(r.tier_pct_of_all_lions) + "% of the " + TOTAL_LIONS_2026 + " Lions awarded this year (~" + tierCount + " total)" });
+  if (r.country_pct_of_all_lions <= 5) {
+    lines.push({ icon: "ti-map-pin", text: "Rare territory: " + c.country + " took just " + fmtPct(r.country_pct_of_all_lions) + "% of all 2026 Lions" });
+  } else {
+    lines.push({ icon: "ti-map-pin", text: c.country + " earned " + fmtPct(r.country_pct_of_all_lions) + "% of all Lions this year" });
+  }
+  if (c.total_lions_won > 1) {
+    const groups = c.other_lion_groups_count;
+    lines.push({ icon: "ti-flame", text: "This idea won " + c.total_lions_won + " Lions across " + groups + (groups === 1 ? " category" : " categories") + " this year" });
+  } else {
+    lines.push({ icon: "ti-category", text: c.lion_group + " made up " + fmtPct(r.category_pct_of_all_lions) + "% of all 2026 Lions" });
+  }
+  return lines;
+}
+let revealFromRecap = false;
+function renderReveal(c, fromRecap) {
+  revealFromRecap = !!fromRecap;
+  currentCampaign = c;
+  const ts = tierStyle(c.tier_badge);
+  setTierAccent(c.tier_badge);
+
+  $("tierFlash").querySelector("i").className = "ti " + ts.icon;
+  $("tierFlashText").textContent = fromRecap ? ts.label : ts.label + " unlocked";
+  $("revealCoins").textContent = fromRecap
+    ? "from today's session"
+    : state.coins + " spin" + (state.coins === 1 ? "" : "s") + " left";
+
+  const v = videoEmbed(c.video_url);
+  $("videoFrame").innerHTML = v
+    ? '<iframe src="' + v.src + '" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen title="Case film"></iframe>'
+    : "";
+
+  $("revealTitle").textContent = c.title;
+  $("revealBrand").textContent = c.brand;
+
+  const iso = isoOf(c.country);
+  $("revealPills").innerHTML =
+    '<span class="pill tier"><i class="ti ' + ts.icon + '"></i>' + c.tier_badge + '</span>' +
+    '<span class="pill">' + (iso ? '<span class="fi fi-' + iso + '"></span>' : '') + c.country + '</span>' +
+    '<span class="pill"><i class="ti ' + catIcon(c.lion_group) + '"></i>' + c.lion_group + '</span>';
+
+  $("luckBox").innerHTML = luckLines(c).map(l =>
+    '<div class="luck-line"><i class="ti ' + l.icon + '"></i><span>' + l.text + '</span></div>'
+  ).join("");
+
+  $("finePrint").textContent = (c.award_tier !== c.tier_badge ? "Exact award: " + c.award_tier + " · " : "") + c.category_name;
+
+  const btn = $("btnSpinAgain");
+  btn.textContent = fromRecap ? "Back to recap" : (state.coins === 0 ? "See my session" : "Pull again");
+}
+
+// ---------- Recap ----------
+function sessionCampaigns() { return state.pulls.map(id => byId[id]).filter(Boolean); }
+const TIER_RANK = { "Grand Prix": 4, "Gold": 3, "Silver": 2, "Bronze": 1 };
+// Rank: metal first, then real-world rarity (lower tier_pct = rarer, so a 0.3%
+// "Grand Prix for Good" outranks a 4.5% regular Grand Prix), then total Lions won.
+function rankPulls(pulls) {
+  return [...pulls].sort((a, b) =>
+    TIER_RANK[b.tier_badge] - TIER_RANK[a.tier_badge] ||
+    a.real_world_rarity.tier_pct_of_all_lions - b.real_world_rarity.tier_pct_of_all_lions ||
+    b.total_lions_won - a.total_lions_won);
+}
+function bestPull(pulls) { return rankPulls(pulls)[0] || null; }
+function recapHeadline(pulls) {
+  const counts = {};
+  TIERS.forEach(t => counts[t] = 0);
+  pulls.forEach(c => counts[c.tier_badge]++);
+  return TIERS.filter(t => counts[t] > 0).map(t => counts[t] + " " + t).join(", ");
+}
+function binom(n, k) { let r = 1; for (let i = 1; i <= k; i++) r = r * (n - i + 1) / i; return r; }
+function sessionStats(pulls) {
+  const lines = [];
+  const gp = pulls.filter(c => c.tier_badge === "Grand Prix").length;
+  if (gp >= 2) {
+    // Real odds of this many Grand Prix in n uniform draws from the 156-campaign pool (34 GP)
+    const p = 34 / 156, n = pulls.length;
+    let prob = 0;
+    for (let k = gp; k <= n; k++) prob += binom(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k);
+    const pctText = prob * 100 < 1 ? "<1" : String(Math.round(prob * 100));
+    lines.push('<span class="highlight">Only ' + pctText + "% of sessions land " + gp + "+ Grand Prix</span>");
+  }
+  const totalWon = pulls.reduce((s, c) => s + c.total_lions_won, 0);
+  lines.push("Your " + pulls.length + " pulls won a combined " + totalWon + " Lions at Cannes 2026");
+  return lines;
+}
+function renderRecap() {
+  const pulls = sessionCampaigns();
+  if (pulls.length === 0) { show("screen-spin"); return; }
+  const ranked = rankPulls(pulls);
+  $("recapHeadline").textContent = recapHeadline(pulls);
+  $("recapStat").innerHTML = sessionStats(pulls).join("<br>");
+  $("recapGrid").innerHTML = ranked.map((c, i) => {
+    const ts = tierStyle(c.tier_badge);
+    const iso = isoOf(c.country);
+    const t = thumbUrl(c);
+    const thumb = t
+      ? '<img class="pull-thumb" src="' + t + '" alt="" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;pull-thumb&quot;><i class=&quot;ti ti-movie&quot;></i></div>\'">'
+      : '<div class="pull-thumb"><i class="ti ti-movie"></i></div>';
+    return '<div class="pull-row' + (i === 0 ? " best" : "") + '" data-id="' + c.id + '">' +
+      '<span class="rank-chip">' + (i + 1) + '</span>' + thumb +
+      '<div class="pull-info"><div class="pull-title">' + c.title + '</div>' +
+      '<div class="pull-meta">' +
+      '<span class="tier-dot" style="color:' + ts.color + '">' + c.tier_badge + '</span>' +
+      '<span>' + fmtPct(c.real_world_rarity.tier_pct_of_all_lions) + '% of Lions</span>' +
+      (iso ? '<span class="fi fi-' + iso + '"></span>' : '') +
+      '<span class="cat">' + c.brand + ' · ' + c.lion_group + '</span>' +
+      '</div></div>' +
+      (i === 0 ? '<span class="best-tag">Best pull</span>' : "") +
+      '<i class="ti ti-chevron-right chevron"></i></div>';
+  }).join("");
+  $("recapResetNote").textContent = resetCountdownText();
+  show("screen-recap");
+}
+
+// ---------- Share (client-side canvas → Web Share API, download fallback) ----------
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(" ");
+  const lines = [];
+  let line = "";
+  words.forEach(w => {
+    const t = line ? line + " " + w : w;
+    if (ctx.measureText(t).width > maxWidth && line) { lines.push(line); line = w; }
+    else line = t;
+  });
+  if (line) lines.push(line);
+  return lines;
+}
+function drawCardBase(ctx, accent) {
+  ctx.fillStyle = "#0d0e12";
+  ctx.fillRect(0, 0, 1080, 1350);
+  const grad = ctx.createRadialGradient(540, -100, 50, 540, -100, 900);
+  grad.addColorStop(0, accent + "55");
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1080, 1350);
+  ctx.fillStyle = "#f4f5f7";
+  ctx.font = "800 34px -apple-system, 'Segoe UI', Roboto, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("CANNES LIONS JACKPOT 2026", 540, 96);
+  ctx.fillStyle = "#9aa0ae";
+  ctx.font = "600 24px -apple-system, 'Segoe UI', Roboto, sans-serif";
+}
+function drawPullCard(c) {
+  const cv = $("shareCanvas"), ctx = cv.getContext("2d");
+  const ts = tierStyle(c.tier_badge);
+  drawCardBase(ctx, ts.color);
+  ctx.fillText("I just pulled…", 540, 140);
+
+  // medal
+  ctx.beginPath(); ctx.arc(540, 360, 130, 0, Math.PI * 2);
+  ctx.fillStyle = ts.color; ctx.fill();
+  ctx.beginPath(); ctx.arc(540, 360, 104, 0, Math.PI * 2);
+  ctx.fillStyle = "#0d0e12"; ctx.fill();
+  ctx.fillStyle = ts.color;
+  ctx.font = "800 54px -apple-system, 'Segoe UI', Roboto, sans-serif";
+  const tierWords = c.tier_badge === "Grand Prix" ? ["GRAND", "PRIX"] : [c.tier_badge.toUpperCase()];
+  tierWords.forEach((w, i) => ctx.fillText(w, 540, 360 + (i - (tierWords.length - 1) / 2) * 60 + 18));
+
+  // flag + country
+  ctx.font = "72px -apple-system, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText(flagEmoji(c.country), 540, 585);
+  ctx.fillStyle = "#9aa0ae";
+  ctx.font = "600 30px -apple-system, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText(c.country + "  ·  " + c.lion_group, 540, 645);
+
+  // title + brand
+  ctx.fillStyle = "#f4f5f7";
+  ctx.font = "800 62px -apple-system, 'Segoe UI', Roboto, sans-serif";
+  let y = 760;
+  wrapText(ctx, c.title, 920).slice(0, 3).forEach(l => { ctx.fillText(l, 540, y); y += 72; });
+  ctx.fillStyle = "#9aa0ae";
+  ctx.font = "700 36px -apple-system, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText(c.brand, 540, y + 14); y += 90;
+
+  // rarity box
+  roundRect(ctx, 90, y, 900, 150, 24);
+  ctx.fillStyle = "rgba(255,255,255,0.06)"; ctx.fill();
+  ctx.strokeStyle = ts.color; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = ts.color;
+  ctx.font = "700 34px -apple-system, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText(c.tier_badge + " — only " + fmtPct(c.real_world_rarity.tier_pct_of_all_lions) + "% of all Lions this year", 540, y + 68);
+  ctx.fillStyle = "#9aa0ae";
+  ctx.font = "600 28px -apple-system, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText(c.total_lions_won > 1 ? "This idea won " + c.total_lions_won + " Lions in 2026" : c.category_name.slice(0, 52), 540, y + 116);
+
+  ctx.fillStyle = "#5c6270";
+  ctx.font = "600 26px -apple-system, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText("5 free pulls a day · real Cannes Lions 2026 winners", 540, 1290);
+  return cv;
+}
+function drawSessionCard(pulls) {
+  const cv = $("shareCanvas"), ctx = cv.getContext("2d");
+  const ranked = rankPulls(pulls);
+  const best = ranked[0];
+  drawCardBase(ctx, tierStyle(best.tier_badge).color);
+  ctx.fillText("My session", 540, 140);
+
+  ctx.fillStyle = "#f4f5f7";
+  ctx.font = "800 52px -apple-system, 'Segoe UI', Roboto, sans-serif";
+  let y = 226;
+  wrapText(ctx, recapHeadline(pulls), 920).slice(0, 2).forEach(l => { ctx.fillText(l, 540, y); y += 60; });
+
+  ctx.fillStyle = "#9aa0ae";
+  ctx.font = "600 28px -apple-system, 'Segoe UI', Roboto, sans-serif";
+  const stat = sessionStats(pulls).map(s => s.replace(/<[^>]+>/g, ""))[0];
+  ctx.fillText(stat, 540, y + 8); y += 52;
+
+  ranked.forEach(c => {
+    const ts = tierStyle(c.tier_badge);
+    roundRect(ctx, 90, y, 900, 128, 22);
+    ctx.fillStyle = c === best ? "rgba(242,201,76,0.10)" : "rgba(255,255,255,0.05)";
+    ctx.fill();
+    if (c === best) { ctx.strokeStyle = "#f2c94c"; ctx.lineWidth = 3; ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(160, y + 64, 26, 0, Math.PI * 2);
+    ctx.fillStyle = ts.color; ctx.fill();
+    ctx.textAlign = "left";
+    ctx.font = "56px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    ctx.fillText(flagEmoji(c.country), 215, y + 84);
+    ctx.fillStyle = "#f4f5f7";
+    ctx.font = "700 34px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    let title = c.title;
+    while (ctx.measureText(title).width > 560 && title.length > 4) title = title.slice(0, -5) + "…";
+    ctx.fillText(title, 305, y + 56);
+    ctx.fillStyle = ts.color;
+    ctx.font = "700 27px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    const suffix = c === best ? "  ·  BEST PULL" : "";
+    let group = c.lion_group;
+    while (ctx.measureText(c.tier_badge + "  ·  " + group + suffix).width > 640 && group.length > 4) group = group.slice(0, -2).trimEnd() + "…";
+    ctx.fillText(c.tier_badge + "  ·  " + group + suffix, 305, y + 98);
+    ctx.textAlign = "center";
+    y += 148;
+  });
+
+  ctx.fillStyle = "#5c6270";
+  ctx.font = "600 26px -apple-system, 'Segoe UI', Roboto, sans-serif";
+  ctx.fillText("5 free pulls a day · real Cannes Lions 2026 winners", 540, 1290);
+  return cv;
+}
+async function shareCanvasImage(canvas, filename, text) {
+  const blob = await new Promise(r => canvas.toBlob(r, "image/png"));
+  if (!blob) { toast("Couldn't render the share image"); return; }
+  const file = new File([blob], filename, { type: "image/png" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: "Cannes Lions Jackpot 2026", text: text }); return; }
+    catch (e) { if (e.name === "AbortError") return; /* else fall through to download */ }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast("Image downloaded — share it anywhere");
+}
+
+// ---------- Lever ----------
+(function initLever() {
+  const zone = $("lever"), arm = $("leverArm");
+  const MAX_ANGLE = 130, PULL_PX = 110; // drag distance for a full pull
+  let dragging = false, fired = false, startY = 0;
+
+  function setAngle(a) { arm.style.transform = "rotateX(" + a + "deg)"; }
+  function springBack() {
+    arm.classList.add("spring");
+    setAngle(0);
+    setTimeout(() => arm.classList.remove("spring"), 480);
+  }
+  function fire() {
+    fired = true;
+    if (navigator.vibrate) navigator.vibrate(15);
+    doSpin();
+  }
+  function progressOf(e) { return Math.min(Math.max((e.clientY - startY) / PULL_PX, 0), 1); }
+
+  zone.addEventListener("pointerdown", e => {
+    if (spinning || state.coins <= 0) return;
+    dragging = true; fired = false; startY = e.clientY;
+    arm.classList.remove("spring");
+    zone.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  zone.addEventListener("pointermove", e => {
+    if (!dragging || fired) return;
+    const prog = progressOf(e);
+    setAngle(prog * MAX_ANGLE);
+    if (prog >= 1) { dragging = false; fire(); springBack(); }
+  });
+  zone.addEventListener("pointerup", e => {
+    if (!dragging) return;
+    dragging = false;
+    if (fired) return;
+    const prog = progressOf(e);
+    if (prog < 0.15) {
+      // Treat as a tap/click: play a full automatic pull
+      arm.classList.add("spring");
+      setAngle(MAX_ANGLE);
+      setTimeout(() => { fire(); springBack(); }, 240);
+    } else {
+      if (prog >= 0.55) fire(); // released far enough down → counts as a pull
+      springBack();
+    }
+  });
+  zone.addEventListener("pointercancel", () => {
+    if (dragging && !fired) springBack();
+    dragging = false;
+  });
+})();
+
+// ---------- Wire-up ----------
+$("btnGoRecap").addEventListener("click", renderRecap);
+$("recapGrid").addEventListener("click", e => {
+  const row = e.target.closest(".pull-row");
+  if (!row) return;
+  const c = byId[row.dataset.id];
+  if (!c) return;
+  renderReveal(c, true);
+  show("screen-reveal");
+});
+$("btnSpinAgain").addEventListener("click", () => {
+  $("videoFrame").innerHTML = ""; // stop playback
+  if (revealFromRecap || state.coins === 0) { renderRecap(); return; }
+  show("screen-spin"); // back to the machine — user pulls the lever themselves
+});
+$("btnSharePull").addEventListener("click", () => {
+  if (!currentCampaign) return;
+  const c = currentCampaign;
+  shareCanvasImage(drawPullCard(c), "cannes-jackpot-pull.png",
+    "I pulled \"" + c.title + "\" (" + c.tier_badge + ", " + c.country + ") on Cannes Lions Jackpot 2026");
+});
+$("btnShareSession").addEventListener("click", () => {
+  const pulls = sessionCampaigns();
+  if (pulls.length === 0) return;
+  shareCanvasImage(drawSessionCard(pulls), "cannes-jackpot-session.png",
+    "My Cannes Lions Jackpot session: " + recapHeadline(pulls) + " — " + sessionStats(pulls).map(s => s.replace(/<[^>]+>/g, "")).join(". "));
+});
+
+// countdown refresh
+setInterval(() => {
+  if (state.date !== todayStr()) { state = loadState(); renderSpinScreen(); } // rolled past midnight
+  if ($("screen-spin").classList.contains("active")) renderSpinScreen();
+  if ($("screen-recap").classList.contains("active")) $("recapResetNote").textContent = resetCountdownText();
+}, 30000);
+
+// init
+renderSpinScreen();
+if (location.protocol === "file:") {
+  // YouTube embeds require an HTTP Referer; file:// sends none → playback error 153.
+  setTimeout(() => toast("Videos need http — run: python3 -m http.server"), 800);
+}
+</script>
+</body>
+</html>
